@@ -1030,16 +1030,7 @@ Notes_page = """
       <div>
         <button class="save" id="saveNoteBtn">Save</button>
         <button class="btn" id="closeEditor" style="margin-left:8px;background:transparent;color:var(--muted)">Cancel</button>
-        
-      </div>        
-        <div id="uploadStatus" class="muted" style="display:none;margin-bottom:6px">
-          Uploading…
-        </div>
-        
-        <div id="uploadBarWrap" style="display:none;height:6px;border-radius:6px;background:#222;overflow:hidden">
-          <div id="uploadBar" style="height:100%;width:0%;background:linear-gradient(90deg,#ffd94d,#ffb700)"></div>
-        </div>
-
+      </div>
     </div>
   </div>
 
@@ -1172,68 +1163,41 @@ Notes_page = """
   }
 
   // add / save note
-    saveNoteBtn.addEventListener("click", () => {
+    saveNoteBtn.addEventListener("click", async () => {
       const title = noteTitle.value.trim();
       const content = rte.innerHTML.trim();
-      const rawTags = noteTags.value.split(",").map(t => t.trim()).filter(Boolean);
+      const rawTags = noteTags.value.split(",").map(t => t.trim()).filter(t => t);
       const fileInput = document.getElementById("noteFile");
+      
     
       const formData = new FormData();
       formData.append("title", title);
       formData.append("content", content);
       formData.append("tags", JSON.stringify(rawTags));
-    
+
       if (fileInput && fileInput.files[0]) {
-        formData.append("file", fileInput.files[0]);
+         formData.append("file", fileInput.files[0]);
       }
     
       if (editingId) {
         formData.append("id", editingId);
+    
+        await fetch("/edit_note", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
+    
+      } else {
+        await fetch("/add_note", {
+          method: "POST",
+          credentials: "include",
+          body: formData
+        });
       }
     
-      /* ---- UI ELEMENTS ---- */
-      const status = document.getElementById("uploadStatus");
-      const barWrap = document.getElementById("uploadBarWrap");
-      const bar = document.getElementById("uploadBar");
-    
-      status.style.display = "block";
-      status.textContent = "Uploading…";
-      barWrap.style.display = "block";
-      bar.style.width = "0%";
-      bar.style.background = "linear-gradient(90deg,#ffd94d,#ffb700)";
-    
-      /* ---- XHR FOR PROGRESS ---- */
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", editingId ? "/edit_note" : "/add_note", true);
-      xhr.withCredentials = true;
-    
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100);
-          bar.style.width = percent + "%";
-          status.textContent = `Uploading… ${percent}%`;
-        }
-      };
-    
-      xhr.onload = async () => {
-        bar.style.width = "100%";
-        status.textContent = "✅ Upload complete";
-    
-        setTimeout(() => {
-          status.style.display = "none";
-          barWrap.style.display = "none";
-          editor.classList.remove("open");
-        }, 700);
-    
-        await fetchNotes();
-      };
-    
-      xhr.onerror = () => {
-        status.textContent = "❌ Upload failed";
-        bar.style.background = "#ff4b5c";
-      };
-    
-      xhr.send(formData);
+      editor.classList.remove("open");
+      await fetchNotes();
     });
 
 
